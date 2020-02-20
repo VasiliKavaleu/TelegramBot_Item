@@ -4,7 +4,7 @@ import csv
 import logging
 import collections
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('wb')
 
 ParseResult = collections.namedtuple(
@@ -16,7 +16,7 @@ ParseResult = collections.namedtuple(
 	)
 )
 
-HEADERS = (
+HEADERS = ( # headers of table
 	'Бренд',
 	'Товар',
 	'Ссылка',
@@ -24,14 +24,15 @@ HEADERS = (
 
 class Client:
 
-	def __init__(self):
+	def __init__(self, page):
+		self.page = page
 		self.session = requests.Session() # creating params of requests
 		self.headers = { 
 		'accept':'*/*','user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Safari/537.36'}
 		self.result = []
 
 	def load_page(self): # loading page in according to url
-		url ='https://www.wildberries.by/catalog/obuv/muzhskaya/kedy-i-krossovki'
+		url ='https://www.wildberries.by/catalog/obuv/muzhskaya/kedy-i-krossovki?page={}'.format(self.page)
 		res = self.session.get(url  = url)
 		res.raise_for_status()
 		return res.content
@@ -39,49 +40,32 @@ class Client:
 	def parser_page(self, text: str): # parser of main page
 		soup = BeautifulSoup(text, 'lxml')
 		container = soup.select('div.dtList.i-dtList.j-card-item')
-		#logger.info(container)
-		print(container)
+		#logger.debug(container)
+
+		if len(container) == 0: # verification last page through exceptions
+			return  1/0
+
+
 		for block in container:
 			self.parcer_block(block=block)
 
 	def parcer_block(self, block): # parser info from each part of block (from main container)
-			#logger.info(block)
-			#logger.info('='*100)
 
-			url_block = block.select_one('a.ref_goods_n_p') # cheking if info is
-			if not url_block:
-				logger.error('no url_block')
-
+			url_block = block.select_one('a.ref_goods_n_p') #
 			url = url_block.get('href')
-			if not url:
-				logger.error('no href')
-				return
 
 			name_block = block.select_one('div.dtlist-inner-brand-name')
-			if not name_block:
-				logger.error(f'no name_block on {url}')
-				return
-
-			brand_name = name_block.select_one('strong.brand-name')
-			if not name_block:
-				logger.error(f'no name_block on {url}')
-				return
-
-
-			brand_name = brand_name.text # convert info 
-			brand_name = brand_name.replace('/','').strip()
+			brand_name = name_block.select_one('strong.brand-name')	 # choosing appropriate part of block
+			brand_name = brand_name.text                             # getting info
+			brand_name = brand_name.replace('/','').strip()          # convert info
 
 			goods_name = name_block.select_one('span.goods-name')
-			if not name_block:
-				logger.error(f'goods_name on {url}')
-				return
-
 			goods_name = goods_name.text
 			goods_name = goods_name.replace('/','').strip()
 
 			
 
-			self.result.append(ParseResult( # add information (list) for further actions
+			self.result.append(ParseResult( # add information  for further actions
 				url = url,
 				brand_name = brand_name,
 				goods_name = goods_name,
@@ -91,11 +75,16 @@ class Client:
 
 	def save_results(self): # saving results in csv 
 		path = '/home/vasiliy/Project/wildbik.csv' # path to csv
-		with open(path,'w') as f:
+		with open(path,'a') as f:
 			writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-			writer.writerow(HEADERS) # write info with headers of table
-			for item in self.result:
-				writer.writerow(item)
+			if self.page == 1 : # write headers only once
+				writer.writerow(HEADERS) # write  headers into table
+				for item in self.result: # continue parser page
+					writer.writerow(item)
+			else:
+				for item in self.result:
+					writer.writerow(item)
+		logger.info('{} page(s) passed!'.format(self.page))
 
 	def run(self): # run script
 		text = self.load_page()
@@ -104,5 +93,12 @@ class Client:
 
 
 if __name__ == '__main__':
-	parser = Client()
-	parser.run()
+	page = 1
+	while True:
+		try :
+			parser = Client(page)
+			parser.run()
+			page +=1
+		except ZeroDivisionError :
+			logger.info('Process has hinished!')
+			break
