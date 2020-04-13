@@ -23,7 +23,6 @@ HEADERS = ( # headers of table
 )
 
 class Client:
-
 	def __init__(self, page):
 		self.page = page
 		self.session = requests.Session() # creating params of requests
@@ -45,12 +44,10 @@ class Client:
 		if len(container) == 0: # verification last page through exceptions
 			return  1/0
 
-
 		for block in container:
 			self.parcer_block(block=block)
 
 	def parcer_block(self, block): # parser info from each part of block (from main container)
-
 			url_block = block.select_one('a.ref_goods_n_p') #
 			url = url_block.get('href')
 
@@ -62,8 +59,6 @@ class Client:
 			goods_name = name_block.select_one('span.goods-name')
 			goods_name = goods_name.text
 			goods_name = goods_name.replace('/','').strip()
-
-			
 
 			self.result.append(ParseResult( # add information  for further actions
 				url = url,
@@ -90,7 +85,6 @@ class Client:
 		text = self.load_page()
 		self.parser_page(text=text)
 		self.save_results()
-
 
 if __name__ == '__main__':
 	page = 1
