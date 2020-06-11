@@ -56,4 +56,10 @@ class parsel:
         finish = self.exploring_page(page=page)
         return finish
 
-bot.polling(none_stop=True)
+
+while True:
+    try:
+        bot.polling(none_stop=True)
+    except Exception as e:
+        print(e)
+        time.sleep(15)
